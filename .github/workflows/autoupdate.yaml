@@ -8,9 +8,13 @@ on:
       - "settings.gradle.kts"
       - "**/build.gradle.kts"
 
+  workflow_dispatch: {}
+
 jobs:
   update:
     runs-on: ubuntu-latest
+    env:
+      USE_BWRAP: "0"
 
     permissions:
       contents: write
@@ -19,17 +23,17 @@ jobs:
       - uses: actions/checkout@v4
 
       - uses: cachix/install-nix-action@v31
+        with:
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update deps.json
         run: |
           $(nix build .#packages.x86_64-linux.default.mitmCache.updateScript --print-out-paths)
 
-      - name: Commit changes
+      - name: Commit updated deps.json
         run: |
-          if ! git diff --quiet; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add deps.json
-            git commit -m "chore: update deps.json"
-            git push
-          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add deps.json
+          git diff --cached --quiet || git commit -m "chore: update deps.json"
+          git push
