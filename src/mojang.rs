@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use reqwest::Client;
 
@@ -16,7 +16,10 @@ pub struct MojangAuth {
 impl MojangAuth {
     pub fn new() -> Self {
         MojangAuth {
-            client: Client::new(),
+            client: Client::builder()
+                .timeout(Duration::from_secs(5))
+                .build()
+                .expect("failed to build HTTP client"),
             challenges: Arc::new(Mutex::new(HashMap::new())),
         }
     }

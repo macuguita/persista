@@ -10,6 +10,7 @@ pub enum AppError {
     BadRequest(String),
     Unauthorized(String),
     NotFound,
+    Timeout,
     Internal(String),
 }
 
@@ -17,10 +18,14 @@ impl IntoResponse for AppError {
     fn into_response(self) -> Response {
         let (status, message) = match self {
             AppError::BadRequest(msg) => (StatusCode::BAD_REQUEST, msg),
-            AppError::Unauthorized(msg) => (StatusCode::UNAUTHORIZED, msg),
-            AppError::NotFound => (StatusCode::BAD_REQUEST, "not found".to_string()),
+            AppError::Unauthorized(msg) => {
+                eprintln!("ERROR: unauthorized request: {msg}");
+                (StatusCode::UNAUTHORIZED, msg)
+            }
+            AppError::NotFound => (StatusCode::NOT_FOUND, "not found".to_string()),
+            AppError::Timeout => (StatusCode::REQUEST_TIMEOUT, "request timed out".to_string()),
             AppError::Internal(msg) => {
-                tracing::error!("internal error: {msg}");
+                eprintln!("ERROR: internal error: {msg}");
                 (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     "internal server error".to_string(),
@@ -59,5 +64,12 @@ impl From<reqwest::Error> for AppError {
 impl From<jsonwebtoken::errors::Error> for AppError {
     fn from(err: jsonwebtoken::errors::Error) -> Self {
         AppError::Internal(err.to_string())
+    }
+}
+
+impl From<tokio::time::error::Elapsed> for AppError {
+    // Dont' need the error message
+    fn from(_err: tokio::time::error::Elapsed) -> Self {
+        AppError::Timeout
     }
 }

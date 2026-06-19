@@ -1,3 +1,5 @@
 .env
 /target
 result
+.postgres
+.direnv

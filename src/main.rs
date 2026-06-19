@@ -8,11 +8,12 @@ mod mojang;
 mod rate_limit;
 
 use std::sync::Arc;
+use std::time::Duration;
 
 use axum::{
     Router,
     body::Body,
-    extract::{Path, Request, State},
+    extract::{DefaultBodyLimit, Path, Request, State},
     http::StatusCode,
     middleware::{self, Next},
     response::{IntoResponse, Json, Response},
@@ -26,7 +27,7 @@ use mojang::MojangAuth;
 use rate_limit::RateLimiter;
 use serde_json::Value;
 use sqlx::{PgPool, types::Uuid};
-use tower_http::trace::TraceLayer;
+use tokio::{signal, time::timeout};
 
 #[derive(Clone)]
 struct AppState {
@@ -39,10 +40,6 @@ struct AppState {
 
 #[tokio::main]
 async fn main() {
-    tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
-        .init();
-
     dotenvy::dotenv().ok(); //load .env if present
 
     let config = Config::from_env();
@@ -75,7 +72,7 @@ async fn main() {
         .route("/api/auth/mojang", post(post_auth))
         .route_layer(middleware::from_fn_with_state(
             state.auth_limiter.clone(),
-            |State(limiter): State<Arc<RateLimiter>>, req: Request<Body>, next: Next| async move {
+            |State(limiter): State<Arc<RateLimiter>>, req: Request<Body>, next: Next| async {
                 rate_limit::rate_limit_middleware(limiter, req, next).await
             },
         ));
@@ -87,7 +84,7 @@ async fn main() {
         )
         .route_layer(middleware::from_fn_with_state(
             state.data_limiter.clone(),
-            |State(limiter): State<Arc<RateLimiter>>, req: Request<Body>, next: Next| async move {
+            |State(limiter): State<Arc<RateLimiter>>, req: Request<Body>, next: Next| async {
                 rate_limit::rate_limit_middleware(limiter, req, next).await
             },
         ));
@@ -96,16 +93,39 @@ async fn main() {
         .merge(auth_routes)
         .merge(data_routes)
         .nest("/api/admin", admin_routes)
-        .layer(TraceLayer::new_for_http())
-        .with_state(state);
+        .layer(middleware::from_fn(timeout_middleware))
+        .layer(DefaultBodyLimit::max(1024))
+        .with_state(state)
+        .into_make_service_with_connect_info::<std::net::SocketAddr>();
 
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", port))
         .await
         .expect("failed to bind port");
 
-    tracing::info!("Persista starting on port {}", port);
+    println!("INFO: Persista starting on port {}", port);
 
-    axum::serve(listener, app).await.expect("server error");
+    axum::serve(listener, app)
+        .with_graceful_shutdown(async {
+            #[cfg(unix)]
+            {
+                let mut sigterm = signal::unix::signal(signal::unix::SignalKind::terminate())
+                    .expect("failed to install SIGTERM handler");
+
+                tokio::select! {
+                    _ = sigterm.recv() => {},
+                    _ = signal::ctrl_c() => {},
+                };
+            }
+
+            #[cfg(not(unix))]
+            {
+                tokio::signal::ctrl_c().await.ok();
+            }
+
+            println!("INFO: Shutting down…");
+        })
+        .await
+        .expect("server error");
 }
 
 async fn get_data(
@@ -259,6 +279,10 @@ async fn admin_layer(
     }
 
     Ok(next.run(req).await)
+}
+
+async fn timeout_middleware(req: Request<Body>, next: Next) -> Result<Response, AppError> {
+    Ok(timeout(Duration::from_secs(30), next.run(req)).await?)
 }
 
 pub fn entitlements_key() -> Identifier {

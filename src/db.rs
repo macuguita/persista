@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use sqlx::PgPool;
 use sqlx::postgres::PgPoolOptions;
 use uuid::Uuid;
@@ -9,6 +11,7 @@ use crate::model::Entitlements;
 pub async fn init_pool(db_url: &str) -> Result<PgPool, sqlx::Error> {
     PgPoolOptions::new()
         .max_connections(10)
+        .acquire_timeout(Duration::from_secs(5))
         .connect(db_url)
         .await
 }

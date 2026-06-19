@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -62,12 +63,22 @@ fn now_secs() -> u64 {
 }
 
 fn extract_key(req: &Request<Body>) -> String {
-    req.headers()
+    let forwarded = req
+        .headers()
         .get("X-Forwarded-For")
         .and_then(|v| v.to_str().ok())
         .and_then(|s| s.split(',').next())
-        .map(|s| s.trim().to_string())
-        .unwrap_or_else(|| "unknown".to_string())
+        .map(|s| s.trim());
+
+    if let Some(ip) = forwarded {
+        return ip.to_owned();
+    }
+
+    if let Some(addr) = req.extensions().get::<SocketAddr>() {
+        return addr.ip().to_string();
+    }
+
+    "unknown".to_string()
 }
 
 pub async fn rate_limit_middleware(
