@@ -1,0 +1,107 @@
+name: Nix
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [main]
+    tags:
+      - "*"
+    paths:
+      # File types
+      - "**.rs"
+
+      # Build files
+      - "**.nix"
+      - "nix/**"
+      - "flake.lock"
+
+      # Directories
+      - ".sqlx/**"
+      - ".migrations/**"
+
+      # Files
+      - "Cargo.toml"
+      - "Cargo.lock"
+
+      # Workflows
+      - ".github/workflows/nix.yml"
+  pull_request:
+    paths:
+      # File types
+      - "**.rs"
+
+      # Build files
+      - "**.nix"
+      - "nix/**"
+      - "flake.lock"
+
+      # Directories
+      - ".sqlx/**"
+      - ".migrations/**"
+
+      # Files
+      - "Cargo.toml"
+      - "Cargo.lock"
+
+      # Workflows
+      - ".github/workflows/nix.yml"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  build:
+    name: Build (${{ matrix.system }})
+
+    permissions:
+      contents: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            system: x86_64-linux
+
+          - os: ubuntu-22.04-arm
+            system: aarch64-linux
+
+          - os: macos-26
+            system: aarch64-darwin
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+        # For PRs
+      - name: Setup Nix Magic Cache
+        if: ${{ github.event_name == 'pull_request' }}
+        uses: DeterminateSystems/magic-nix-cache-action@v14
+        with:
+          diagnostic-endpoint: ""
+          use-flakehub: false
+
+        # For in-tree builds
+      - name: Setup Cachix
+        if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+        uses: cachix/cachix-action@v17
+        with:
+          name: persista
+          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
+
+      - name: Run Flake checks
+        run: |
+          nix flake check --print-build-logs --show-trace
+
+      - name: Build
+        run: nix build .#persista
