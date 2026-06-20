@@ -62,12 +62,13 @@ async fn main() {
 
     axum::serve(listener, app)
         .with_graceful_shutdown(async move {
-            println!("INFO: Shutting down…");
             tokio::select! {
                 _ = sigterm.recv() => {
+                    println!("INFO: Received SIGTERM");
                     std::process::exit(0);
                 },
                 _ = signal::ctrl_c() => {
+                    println!("INFO: Interrupted");
                     std::process::exit(130);
                 },
             };
