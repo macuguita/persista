@@ -1,7 +1,9 @@
-use std::collections::HashMap;
-use std::net::SocketAddr;
-use std::sync::{Arc, Mutex};
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    collections::HashMap,
+    net::SocketAddr,
+    sync::{Arc, Mutex},
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use axum::{
     body::Body,
@@ -69,7 +71,7 @@ fn extract_key(req: &Request<Body>) -> String {
         .or_else(|| req.headers().get("X-Forwarded-For"))
         .and_then(|v| v.to_str().ok())
         .and_then(|s| s.split(',').next())
-        .map(|s| s.trim());
+        .map(str::trim);
 
     if let Some(ip) = forwarded {
         return ip.to_owned();

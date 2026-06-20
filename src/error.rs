@@ -37,12 +37,6 @@ impl IntoResponse for AppError {
     }
 }
 
-impl From<sqlx::Error> for AppError {
-    fn from(err: sqlx::Error) -> Self {
-        AppError::Internal(err.to_string())
-    }
-}
-
 impl From<crate::identifier::IdentifierError> for AppError {
     fn from(err: crate::identifier::IdentifierError) -> Self {
         AppError::BadRequest(err.to_string())
@@ -52,6 +46,19 @@ impl From<crate::identifier::IdentifierError> for AppError {
 impl From<uuid::Error> for AppError {
     fn from(err: uuid::Error) -> Self {
         AppError::BadRequest(err.to_string())
+    }
+}
+
+impl From<tokio::time::error::Elapsed> for AppError {
+    // Dont' need the error message
+    fn from(_err: tokio::time::error::Elapsed) -> Self {
+        AppError::Timeout
+    }
+}
+
+impl From<sqlx::Error> for AppError {
+    fn from(err: sqlx::Error) -> Self {
+        AppError::Internal(err.to_string())
     }
 }
 
@@ -67,9 +74,8 @@ impl From<jsonwebtoken::errors::Error> for AppError {
     }
 }
 
-impl From<tokio::time::error::Elapsed> for AppError {
-    // Dont' need the error message
-    fn from(_err: tokio::time::error::Elapsed) -> Self {
-        AppError::Timeout
+impl From<std::num::TryFromIntError> for AppError {
+    fn from(err: std::num::TryFromIntError) -> Self {
+        AppError::Internal(err.to_string())
     }
 }

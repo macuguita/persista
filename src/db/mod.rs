@@ -1,7 +1,6 @@
 use std::time::Duration;
 
-use sqlx::PgPool;
-use sqlx::postgres::PgPoolOptions;
+use sqlx::{PgPool, postgres::PgPoolOptions};
 use uuid::Uuid;
 
 use crate::error::AppError;
@@ -42,7 +41,7 @@ pub async fn get_value(
 }
 
 pub async fn fetch_entitlements(pool: &PgPool, uuid: Uuid) -> Result<Entitlements, AppError> {
-    let key = crate::entitlements_key();
+    let key = crate::identifier::entitlements_key();
     let value = get_value(pool, uuid, key).await?;
 
     Ok(value
@@ -69,7 +68,7 @@ pub async fn upsert_value(
         id.namespace,
         id.path,
         value,
-        updated_at
+        i64::try_from(updated_at)?
     )
     .execute(pool)
     .await?;
@@ -91,9 +90,9 @@ pub async fn delete_all_for_player(pool: &PgPool, uuid: Uuid) -> Result<u64, App
     Ok(result.rows_affected())
 }
 
-fn chrono_now_millis() -> i64 {
+fn chrono_now_millis() -> u128 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .expect("system clock is before 1970")
-        .as_millis() as i64
+        .as_millis()
 }

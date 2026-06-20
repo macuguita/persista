@@ -1,5 +1,4 @@
-use std::cmp::Ordering;
-use std::fmt;
+use std::{cmp::Ordering, fmt};
 
 #[derive(Debug)]
 pub enum IdentifierError {
@@ -100,10 +99,17 @@ impl PartialOrd for Identifier {
 impl Ord for Identifier {
     fn cmp(&self, other: &Self) -> Ordering {
         let result = self.path.cmp(&other.path);
-        if result != Ordering::Equal {
-            result
-        } else {
+        if result == Ordering::Equal {
             self.namespace.cmp(&other.path)
+        } else {
+            result
         }
+    }
+}
+
+pub fn entitlements_key() -> Identifier {
+    Identifier {
+        namespace: "persista".to_string(),
+        path: "entitlements".to_string(),
     }
 }

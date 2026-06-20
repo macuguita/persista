@@ -1,6 +1,8 @@
-use std::collections::HashMap;
-use std::sync::{Arc, Mutex};
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::{
+    collections::HashMap,
+    sync::{Arc, Mutex},
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 use reqwest::Client;
 
@@ -24,7 +26,7 @@ impl MojangAuth {
         }
     }
 
-    pub fn generate_challenge(&self) -> String {
+    pub fn generate_challenge() -> String {
         use std::fmt::Write;
         let mut bytes = [0u8; 20];
 

@@ -1,5 +1,7 @@
-use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    sync::Arc,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
 use axum::{extract::FromRequestParts, http::request::Parts};
 use chrono::DateTime;
@@ -25,7 +27,7 @@ pub struct Claims {
 
 pub struct SessionToken {
     pub user_id: Uuid,
-    pub session_token: String,
+    pub token: String,
     pub expires_at: String,
 }
 
@@ -47,15 +49,15 @@ pub fn mint(secret: &str, user_id: Uuid) -> Result<SessionToken, AppError> {
         &Header::default(),
         &claims,
         &EncodingKey::from_secret(secret.as_bytes()),
-    );
+    )?;
 
-    let expires_at = DateTime::from_timestamp(exp as i64, 0)
+    let expires_at = DateTime::from_timestamp(exp.try_into()?, 0)
         .unwrap()
         .to_rfc3339();
 
     Ok(SessionToken {
         user_id,
-        session_token: token?,
+        token,
         expires_at,
     })
 }
