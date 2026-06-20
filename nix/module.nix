@@ -147,8 +147,10 @@ in
 
     systemd.services.persista = {
       description = "Persista supporter API";
-      after = [ "network.target" ] 
-        ++ lib.optional (cfg.database.host == "localhost") "postgresql.service";
+      after = [
+        "network.target"
+      ]
+      ++ lib.optional (cfg.database.host == "localhost") "postgresql.service";
       requires = lib.optional (cfg.database.host == "localhost") "postgresql.service";
       wantedBy = [ "multi-user.target" ];
 
@@ -188,6 +190,7 @@ in
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
             proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header CF-Connecting-IP $http_cf_connecting_ip;
           '';
         };
         extraConfig = cfg.nginx.extraConfig;

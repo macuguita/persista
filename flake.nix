@@ -45,8 +45,8 @@
               pre-commit
               clippy
               sqlx-cli
-              dev-pg   # Script that starts postres database
-              stop-pg  # Script that stops previous postgres database
+              dev-pg # Script that starts postres database
+              stop-pg # Script that stops previous postgres database
             ];
 
             shellHook = ''

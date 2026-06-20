@@ -65,7 +65,8 @@ fn now_secs() -> u64 {
 fn extract_key(req: &Request<Body>) -> String {
     let forwarded = req
         .headers()
-        .get("X-Forwarded-For")
+        .get("CF-Connecting-IP")
+        .or_else(|| req.headers().get("X-Forwarded-For"))
         .and_then(|v| v.to_str().ok())
         .and_then(|s| s.split(',').next())
         .map(|s| s.trim());
