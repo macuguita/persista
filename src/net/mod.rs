@@ -67,9 +67,9 @@ async fn get_data(
     Path((uuid, namespace, path)): Path<(Uuid, String, String)>,
     State(state): State<Arc<AppState>>,
 ) -> Result<Json<Value>, AppError> {
-    let id = Identifier::new(namespace, path)?;
+    let id = Identifier::new(&namespace, &path)?;
 
-    let value = db::get_value(&state.db_pool, uuid, id)
+    let value = db::get_value(&state.db_pool, &uuid, &id)
         .await?
         .ok_or(AppError::NotFound)?;
 
@@ -81,7 +81,7 @@ async fn post_challenge(
     Json(payload): Json<model::ChallengeRequest>,
 ) -> Result<Json<model::ChallengeResponse>, AppError> {
     if payload.id.is_empty() {
-        return Err(AppError::BadRequest("is is required".to_string()));
+        return Err(AppError::BadRequest("id is required".to_string()));
     }
 
     let challenge = MojangAuth::generate_challenge();
@@ -120,21 +120,7 @@ async fn post_auth(
         return Err(AppError::Unauthorized("UUID mismatch".to_string()));
     }
 
-    let uuid_str = if profile.id.contains('-') {
-        profile.id.clone()
-    } else {
-        let id = &profile.id;
-        format!(
-            "{}-{}-{}-{}-{}",
-            &id[..8],
-            &id[8..12],
-            &id[12..16],
-            &id[16..20],
-            &id[20..]
-        )
-    };
-
-    let user_id = Uuid::parse_str(&uuid_str)?;
+    let user_id = Uuid::try_parse(&profile.id)?;
 
     let session = jwt::mint(&state.config.jwt_secret, user_id)?;
 
@@ -153,7 +139,7 @@ async fn post_data(
 ) -> Result<impl IntoResponse, AppError> {
     let data_id = Identifier::new(&namespace, &path)?;
 
-    if data_id == crate::identifier::entitlements_key() {
+    if data_id == *crate::identifier::ENTITLEMENTS_KEY {
         return Err(AppError::Unauthorized(
             "entitlements are managed server-side only".to_string(),
         ));
@@ -165,14 +151,14 @@ async fn post_data(
         ));
     }
 
-    let entitlements = db::fetch_entitlements(&state.db_pool, uuid).await?;
+    let entitlements = db::fetch_entitlements(&state.db_pool, &uuid).await?;
     if !entitlements.contains(&data_id) {
         return Err(AppError::Unauthorized(format!(
             "missing entitlement: {data_id}"
         )));
     }
 
-    db::upsert_value(&state.db_pool, uuid, data_id, &body).await?;
+    db::upsert_value(&state.db_pool, &uuid, &data_id, &body).await?;
 
     Ok(StatusCode::NO_CONTENT)
 }
@@ -187,8 +173,8 @@ async fn post_entitlements_admin(
 
     db::upsert_value(
         &state.db_pool,
-        uuid,
-        crate::identifier::entitlements_key(),
+        &uuid,
+        &*crate::identifier::ENTITLEMENTS_KEY,
         &json,
     )
     .await?;
@@ -200,7 +186,7 @@ async fn delete_data(
     Path(uuid): Path<Uuid>,
     State(state): State<Arc<AppState>>,
 ) -> Result<(), AppError> {
-    db::delete_all_for_player(&state.db_pool, uuid).await?;
+    db::delete_all_for_player(&state.db_pool, &uuid).await?;
 
     Ok(())
 }

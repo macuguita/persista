@@ -21,8 +21,8 @@ pub async fn run_migrations(pool: &PgPool) -> Result<(), sqlx::migrate::MigrateE
 
 pub async fn get_value(
     pool: &PgPool,
-    uuid: Uuid,
-    id: Identifier,
+    uuid: &Uuid,
+    id: &Identifier<'_>,
 ) -> Result<Option<serde_json::Value>, AppError> {
     let value = sqlx::query_scalar!(
         r#"
@@ -40,8 +40,8 @@ pub async fn get_value(
     Ok(value)
 }
 
-pub async fn fetch_entitlements(pool: &PgPool, uuid: Uuid) -> Result<Entitlements, AppError> {
-    let key = crate::identifier::entitlements_key();
+pub async fn fetch_entitlements(pool: &PgPool, uuid: &Uuid) -> Result<Entitlements, AppError> {
+    let key = &*crate::identifier::ENTITLEMENTS_KEY;
     let value = get_value(pool, uuid, key).await?;
 
     Ok(value
@@ -51,8 +51,8 @@ pub async fn fetch_entitlements(pool: &PgPool, uuid: Uuid) -> Result<Entitlement
 
 pub async fn upsert_value(
     pool: &PgPool,
-    uuid: Uuid,
-    id: Identifier,
+    uuid: &Uuid,
+    id: &Identifier<'_>,
     value: &serde_json::Value,
 ) -> Result<(), AppError> {
     let updated_at = chrono_now_millis();
@@ -76,7 +76,7 @@ pub async fn upsert_value(
     Ok(())
 }
 
-pub async fn delete_all_for_player(pool: &PgPool, uuid: Uuid) -> Result<u64, AppError> {
+pub async fn delete_all_for_player(pool: &PgPool, uuid: &Uuid) -> Result<u64, AppError> {
     let result = sqlx::query!(
         r#"
         DELETE FROM player_data

@@ -1,0 +1,14 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            DELETE FROM player_data\n            WHERE uuid = $1\n            ",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": []
+  },
+  "hash": "eba684d2088d5bdc64287a6d9ee9893a20f27d2d6f49bd956ea36c53ad4e6053"
+}

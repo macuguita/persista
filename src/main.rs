@@ -3,11 +3,11 @@ use std::sync::Arc;
 use sqlx::PgPool;
 use tokio::signal;
 
-mod config;
-mod db;
-mod error;
-mod identifier;
-mod net;
+pub(crate) mod config;
+pub(crate) mod db;
+pub(crate) mod error;
+pub(crate) mod identifier;
+pub(crate) mod net;
 
 use config::Config;
 use net::{model, mojang::MojangAuth, rate_limit::RateLimiter};
@@ -22,18 +22,24 @@ struct AppState {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     dotenvy::dotenv().ok(); //load .env if present
 
     let config = Config::from_env();
 
     let db_pool = db::init_pool(&config.db_url)
         .await
-        .expect("database not working");
+        .map_err(|e| {
+            eprintln!("ERROR: database not working");
+            e
+        })?;
 
     db::run_migrations(&db_pool)
         .await
-        .expect("migrations failed");
+        .map_err(|e| {
+            eprintln!("ERROR: migrations failed");
+            e
+        })?;
 
     let state = Arc::new(AppState {
         config,
@@ -50,15 +56,25 @@ async fn main() {
 
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", port))
         .await
-        .expect("failed to bind port");
+        .map_err(|e| {
+            eprintln!("ERROR: failed to bind port");
+            e
+        })?;
 
     println!("INFO: Persista starting on port {port}");
 
     #[cfg(target_family = "unix")]
     let mut sigterm = signal::unix::signal(signal::unix::SignalKind::terminate())
-        .expect("failed to install SIGTERM handler");
+        .map_err(|e| {
+            eprintln!("ERROR: failed to install SIGTERM handler");
+            e
+        })?;
     #[cfg(target_family = "windows")]
-    let mut sigterm = signal::windows::ctrl_close().expect("failed to install SIGTERM handler");
+    let mut sigterm = signal::windows::ctrl_close()
+        .map_err(|e| {
+            eprintln!("ERROR: failed to install SIGTERM handler");
+            e
+        })?;
 
     axum::serve(listener, app)
         .with_graceful_shutdown(async move {
@@ -74,5 +90,10 @@ async fn main() {
             };
         })
         .await
-        .expect("server error");
+        .map_err(|e| {
+            eprintln!("ERROR: server error");
+            e
+        })?;
+    
+        Ok(())
 }

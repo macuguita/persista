@@ -1,58 +1,35 @@
+// Remake from https://mcsrc.dev/1/26.1.2/net/minecraft/resources/Identifier
+
 use std::{cmp::Ordering, fmt};
 
-#[derive(Debug)]
-pub enum IdentifierError {
-    Namespace { namespace: String, path: String },
-    Path { namespace: String, path: String },
-    Format(String),
-}
+use lazy_static::lazy_static;
 
-impl fmt::Display for IdentifierError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            IdentifierError::Namespace { namespace, path } => {
-                write!(
-                    f,
-                    "Invalid namespace '{namespace}' in identifier: {namespace}:{path}"
-                )
-            }
-            IdentifierError::Path { namespace, path } => {
-                write!(f, "Invalid path '{path}' in identifier: {namespace}:{path}")
-            }
-            IdentifierError::Format(s) => {
-                write!(f, "Invalid identifier: {s}")
-            }
-        }
-    }
-}
+pub mod error;
 
-impl std::error::Error for IdentifierError {}
+use error::IdentifierError;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Identifier {
-    pub namespace: String,
-    pub path: String,
+pub struct Identifier<'a> {
+    pub namespace: &'a str,
+    pub path: &'a str,
 }
 
-impl Identifier {
+impl<'a> Identifier<'a> {
     pub fn new(
-        namespace: impl Into<String>,
-        path: impl Into<String>,
+        namespace: &'a str,
+        path: &'a str,
     ) -> Result<Self, IdentifierError> {
-        let namespace = namespace.into();
-        let path = path.into();
-
-        if !Self::is_valid_namespace(&namespace) {
-            return Err(IdentifierError::Namespace { namespace, path });
+        if !Self::is_valid_namespace(namespace) {
+            return Err(IdentifierError::Namespace { namespace: namespace.to_string(), path: path.to_string() });
         }
-        if !Self::is_valid_path(&path) {
-            return Err(IdentifierError::Path { namespace, path });
+        if !Self::is_valid_path(path) {
+            return Err(IdentifierError::Path { namespace: namespace.to_string(), path: path.to_string() });
         }
 
         Ok(Identifier { namespace, path })
     }
 
-    pub fn parse(identifier: &str) -> Result<Self, IdentifierError> {
+    pub fn parse(identifier: &'a str) -> Result<Self, IdentifierError> {
         match identifier.find(':') {
             Some(i) if i > 0 => Self::new(&identifier[..i], &identifier[i + 1..]),
             _ => Err(IdentifierError::Format(format!(
@@ -61,7 +38,7 @@ impl Identifier {
         }
     }
 
-    pub fn try_parse(identifier: &str) -> Option<Self> {
+    pub fn try_parse(identifier: &'a str) -> Option<Self> {
         Self::parse(identifier).ok()
     }
 
@@ -84,32 +61,32 @@ impl Identifier {
     }
 }
 
-impl fmt::Display for Identifier {
+impl fmt::Display for Identifier<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}:{}", self.namespace, self.path)
     }
 }
 
-impl PartialOrd for Identifier {
+impl PartialOrd for Identifier<'_> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl Ord for Identifier {
+impl Ord for Identifier<'_> {
     fn cmp(&self, other: &Self) -> Ordering {
         let result = self.path.cmp(&other.path);
         if result == Ordering::Equal {
-            self.namespace.cmp(&other.path)
+            self.namespace.cmp(&other.namespace)
         } else {
             result
         }
     }
 }
 
-pub fn entitlements_key() -> Identifier {
-    Identifier {
-        namespace: "persista".to_string(),
-        path: "entitlements".to_string(),
-    }
+lazy_static! {
+    pub static ref ENTITLEMENTS_KEY: Identifier<'static> = Identifier {
+        namespace: "persista",
+        path: "entitlements",
+    };
 }

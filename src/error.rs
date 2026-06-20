@@ -1,9 +1,13 @@
+use std::fmt::Display;
+
 use axum::{
     Json,
     http::StatusCode,
     response::{IntoResponse, Response},
 };
 use serde_json::json;
+
+use crate::identifier;
 
 #[derive(Debug)]
 pub enum AppError {
@@ -37,8 +41,20 @@ impl IntoResponse for AppError {
     }
 }
 
-impl From<crate::identifier::IdentifierError> for AppError {
-    fn from(err: crate::identifier::IdentifierError) -> Self {
+impl Display for AppError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> { 
+        match self {
+            AppError::BadRequest(msg) => write!(f, "Bad request: {msg}"),
+            AppError::Unauthorized(msg) => write!(f, "Unauthorized request: {msg}"),
+            AppError::NotFound => write!(f, "Not found"),
+            AppError::Timeout => write!(f, "Timeout request"),
+            AppError::Internal(msg) => write!(f, "Internal error: {msg}"),
+        }
+    }
+}
+
+impl From<identifier::error::IdentifierError> for AppError {
+    fn from(err: identifier::error::IdentifierError) -> Self {
         AppError::BadRequest(err.to_string())
     }
 }

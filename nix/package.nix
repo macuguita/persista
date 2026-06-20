@@ -7,7 +7,7 @@ let
 in
 rustPlatform.buildRustPackage (finalAttrs: {
   pname = "persista";
-  version = "1.0.0";
+  inherit (finalAttrs.passthru.cargoToml.package) version;
 
   src = fs.toSource {
     root = ../.;
@@ -22,6 +22,10 @@ rustPlatform.buildRustPackage (finalAttrs: {
 
   cargoLock = {
     lockFile = ../Cargo.lock;
+  };
+
+  passthru = {
+    cargoToml = lib.importTOML ../Cargo.toml;
   };
 
   meta = {

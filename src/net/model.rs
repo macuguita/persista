@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::error::AppError;
+use crate::identifier::Identifier;
 
 #[derive(Deserialize)]
 pub struct ChallengeRequest {
@@ -23,6 +24,7 @@ pub struct AuthRequest {
 #[derive(Serialize, Deserialize)]
 pub struct SessionResponse {
     pub user_id: String,
+    #[serde(rename = "session_token")]
     pub token: String,
     pub expires_at: String,
 }
@@ -45,21 +47,18 @@ impl Entitlements {
 
     pub fn validate(&self) -> Result<(), AppError> {
         for s in &self.values {
-            if crate::identifier::Identifier::try_parse(s).is_none() {
+            if Identifier::try_parse(s).is_none() {
                 return Err(AppError::BadRequest(format!("invalid identifier: {s}")));
             }
         }
         Ok(())
     }
 
-    pub fn to_identifiers(&self) -> Vec<crate::identifier::Identifier> {
-        self.values
-            .iter()
-            .filter_map(|s| crate::identifier::Identifier::try_parse(s))
-            .collect()
+    pub fn identifiers(&self) -> impl Iterator<Item = Identifier<'_>> {
+        self.values.iter().filter_map(|s| Identifier::try_parse(s))
     }
 
-    pub fn contains(&self, identifier: &crate::identifier::Identifier) -> bool {
-        self.to_identifiers().contains(identifier)
+    pub fn contains(&self, identifier: &Identifier) -> bool {
+        self.identifiers().any(|id| &id == identifier)
     }
 }
